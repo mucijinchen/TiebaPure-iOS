@@ -1,0 +1,54 @@
+name: Package Unsigned IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_artifact:
+        description: "Upload the built IPA as a workflow artifact"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+jobs:
+  package:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -project TiebaPure.xcodeproj -scheme TiebaPure \
+            -resolvePackageDependencies
+
+      - name: Build unsigned IPA
+        run: |
+          TIEBAPURE_DERIVED_DATA=/tmp/TiebaPurePackageDerivedData \
+            bash scripts/package-unsigned-ipa.sh
+
+      - name: Collect outputs
+        run: |
+          mkdir -p out
+          cp build/TiebaPure-unsigned.ipa out/
+          cp -R /tmp/TiebaPurePackageDerivedData/Build/Products/Release-iphoneos/TiebaPure.app out/TiebaPure.app 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            out/TiebaPure.app/Info.plist > out/version.txt 2>/dev/null || true
+          ls -lh out
+          unzip -l out/TiebaPure-unsigned.ipa | head -30
+
+      - name: Upload IPA artifact
+        if: ${{ inputs.upload_artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiebaPure-unsigned-ipa
+          path: out/TiebaPure-unsigned.ipa
+          retention-days: 14
