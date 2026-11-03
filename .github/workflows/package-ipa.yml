@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install xcodegen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+
       - name: Resolve Swift packages
         run: |
           xcodebuild -project TiebaPure.xcodeproj -scheme TiebaPure \
